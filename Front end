@@ -1,0 +1,228 @@
+// FRONTEND: SMART TODO APP
+// ---------------------------------------------
+// Next.js + Tailwind CSS client for Django backend
+
+// SETUP STEPS:
+// 1. Create project: npx create-next-app@latest smart-todo-frontend --ts
+// 2. Install Tailwind: npm install -D tailwindcss postcss autoprefixer && npx tailwindcss init -p
+// 3. Create pages and components below
+
+// tailwind.config.js
+module.exports = {
+  content: ["./app/**/*.{js,ts,jsx,tsx}", "./pages/**/*.{js,ts,jsx,tsx}", "./components/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+};
+
+// styles/globals.css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// .env.local
+NEXT_PUBLIC_API_URL=http://localhost:8000/api
+
+// lib/api.ts
+export const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+export async function fetchTasks() {
+  const res = await fetch(`${API_URL}/tasks/`);
+  return res.json();
+}
+
+export async function fetchCategories() {
+  const res = await fetch(`${API_URL}/categories/`);
+  return res.json();
+}
+
+export async function createTask(data: any) {
+  const res = await fetch(`${API_URL}/tasks/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+}
+
+export async function getAISuggestions(task: any) {
+  const res = await fetch(`${API_URL}/tasks/ai-suggestions/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ task }),
+  });
+  return res.json();
+}
+
+// pages/index.tsx
+import { useEffect, useState } from "react";
+import { fetchTasks, fetchCategories } from "../lib/api";
+
+export default function Home() {
+  const [tasks, setTasks] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+
+  useEffect(() => {
+    fetchTasks().then(setTasks);
+    fetchCategories().then(setCategories);
+  }, []);
+
+  const filteredTasks = selectedCategory === "all" ? tasks : tasks.filter((task: any) => task.category === parseInt(selectedCategory));
+
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Smart Todo List</h1>
+
+      <select
+        className="border mb-4 px-2 py-1"
+        value={selectedCategory}
+        onChange={(e) => setSelectedCategory(e.target.value)}
+      >
+        <option value="all">All Categories</option>
+        {categories.map((cat: any) => (
+          <option key={cat.id} value={cat.id}>{cat.name}</option>
+        ))}
+      </select>
+
+      <ul className="space-y-2">
+        {filteredTasks.map((task: any) => (
+          <li key={task.id} className="p-4 bg-white rounded shadow">
+            <div className="flex justify-between">
+              <span className="font-semibold">{task.title}</span>
+              <span className="text-sm text-gray-500">Priority: {task.priority_score}</span>
+            </div>
+            <p className="text-sm text-gray-700">{task.description}</p>
+            <p className="text-xs text-gray-400">Category: {categories.find(c => c.id === task.category)?.name || "Uncategorized"}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// pages/tasks/create.tsx
+import { useState } from "react";
+import { createTask, getAISuggestions } from "../../lib/api";
+import { useRouter } from "next/router";
+
+export default function CreateTask() {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [aiResponse, setAiResponse] = useState("");
+  const router = useRouter();
+
+  const handleSubmit = async () => {
+    const task = await createTask({ title, description });
+    router.push("/");
+  };
+
+  const handleAI = async () => {
+    const ai = await getAISuggestions({ title, description });
+    setAiResponse(ai.suggestion);
+  };
+
+  return (
+    <div className="max-w-xl mx-auto p-6">
+      <h1 className="text-xl font-bold mb-4">Create New Task</h1>
+      <input
+        type="text"
+        className="w-full border p-2 mb-2"
+        placeholder="Title"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+      />
+      <textarea
+        className="w-full border p-2 mb-2"
+        placeholder="Description"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+      />
+      <div className="flex space-x-2">
+        <button className="bg-blue-500 text-white px-4 py-2 rounded" onClick={handleSubmit}>
+          Save Task
+        </button>
+        <button className="bg-purple-500 text-white px-4 py-2 rounded" onClick={handleAI}>
+          Get AI Suggestions
+        </button>
+      </div>
+      {aiResponse && (
+        <div className="mt-4 p-2 border rounded bg-gray-50">
+          <p className="text-sm whitespace-pre-line">{aiResponse}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// pages/context/index.tsx
+import { useEffect, useState } from "react";
+
+export default function ContextPage() {
+  const [content, setContent] = useState("");
+  const [sourceType, setSourceType] = useState("notes");
+  const [entries, setEntries] = useState([]);
+
+  const API = process.env.NEXT_PUBLIC_API_URL;
+
+  const fetchEntries = async () => {
+    const res = await fetch(`${API}/context/`);
+    const data = await res.json();
+    setEntries(data);
+  };
+
+  const addContext = async () => {
+    await fetch(`${API}/context/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content, source_type: sourceType }),
+    });
+    setContent("");
+    fetchEntries();
+  };
+
+  useEffect(() => {
+    fetchEntries();
+  }, []);
+
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-bold mb-4">Daily Context Input</h2>
+      <textarea
+        className="w-full border p-2 mb-2"
+        rows={4}
+        placeholder="Paste your message/email/note here..."
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+      />
+      <select
+        value={sourceType}
+        onChange={(e) => setSourceType(e.target.value)}
+        className="border px-2 py-1 mr-2"
+      >
+        <option value="notes">Notes</option>
+        <option value="email">Email</option>
+        <option value="whatsapp">WhatsApp</option>
+      </select>
+      <button
+        onClick={addContext}
+        className="bg-blue-600 text-white px-4 py-2 rounded"
+      >
+        Add Context
+      </button>
+
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold">Context History</h3>
+        <ul className="space-y-2 mt-2">
+          {entries.map((entry: any) => (
+            <li key={entry.id} className="p-3 bg-white rounded shadow">
+              <strong className="block text-sm text-gray-500">{entry.source_type}</strong>
+              <p className="text-sm">{entry.content}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
