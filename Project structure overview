@@ -1,0 +1,21 @@
+smart-todo/
+├── backend/                  # Django REST Framework backend
+│   ├── ai_module/            # AI logic (OpenAI or LM Studio)
+│   ├── context_data/         # App for daily context (email, notes, etc.)
+│   ├── tasks/                # App for task management
+│   ├── smart_todo/           # Django project settings
+│   ├── manage.py
+│   └── requirements.txt
+│
+├── frontend/                 # Next.js + Tailwind frontend
+│   ├── pages/                # Pages: index, tasks/create, context
+│   ├── lib/                  # API helper functions
+│   ├── styles/               # Global CSS (tailwind)
+│   ├── public/               # Static assets
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   └── next.config.js
+│
+├── README.md                 # Project overview and setup guide
+├── .gitignore                # Global git ignore file
+└── .env.example              # Environment variable templates
